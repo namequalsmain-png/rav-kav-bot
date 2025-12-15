@@ -1,0 +1,7 @@
+discord.py
+motor
+requests
+dnspython
+Pillow
+python-dotenv
+groq

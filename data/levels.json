@@ -1,0 +1,36 @@
+{
+
+    "1":  {"exp_need": 600,   "type": "role", "id": 1448027119002325204, "desc": "Роль: Survivor"}, 
+    "2":  {"exp_need": 1500,  "type": "item", "id": "xp_boost", "amount": 1, "desc": "Энергетик (x2 XP)"},
+    "3":  {"exp_need": 2500,  "type": "item", "id": "hook",     "amount": 1, "desc": "Крюк (Hook)"},
+    "4":  {"exp_need": 3600,  "type": "none", "id": "None",       "amount": 0, "desc": "Цвет ника: Бронза (Пиши админу)"},
+    "5":  {"exp_need": 4800,  "type": "item", "id": "kick",     "amount": 1, "desc": "Билет на пинок (Kick)"},
+    "6":  {"exp_need": 6200,  "type": "item", "id": "steal",    "amount": 1, "desc": "Карманник (Steal XP)"},
+    "7":  {"exp_need": 7800,  "type": "item", "id": "xp_boost", "amount": 1, "desc": "Энергетик (x2 XP)"},
+    "8":  {"exp_need": 9500,  "type": "item", "id": "shield",   "amount": 1, "desc": "Щит (Shield 4h)"},
+    "9":  {"exp_need": 11300, "type": "item", "id": "rename",   "amount": 1, "desc": "Бирка (Rename)"},
+    "10": {"exp_need": 13200, "type": "none", "id": "None",       "amount": 0, "desc": "Цвет ника: Серебро"},
+
+    "11": {"exp_need": 15200, "type": "item", "id": "mute",     "amount": 1, "desc": "Скотч (Mute)"},
+    "12": {"exp_need": 17300, "type": "item", "id": "kick",     "amount": 2, "desc": "Kick Ticket x2"},
+    "13": {"exp_need": 19500, "type": "item", "id": "ghost",    "amount": 1, "desc": "Призрак (Ghost Mode)"},
+    "14": {"exp_need": 21800, "type": "item", "id": "steal",    "amount": 2, "desc": "Карманник x2"},
+    "15": {"exp_need": 24200, "type": "role", "id": 1448027644481507369, "desc": "Роль: Enforcer"}, 
+    "16": {"exp_need": 26700, "type": "item", "id": "rename",   "amount": 1, "desc": "Бирка (Rename)"},
+    "17": {"exp_need": 29300, "type": "item", "id": "shield",   "amount": 1, "desc": "Щит (Shield 4h)"},
+    "18": {"exp_need": 32000, "type": "none", "id": "None",       "amount": 0, "desc": "Цвет ника: Золото"},
+    "19": {"exp_need": 34800, "type": "item", "id": "mute",     "amount": 2, "desc": "Скотч x2"},
+    "20": {"exp_need": 36000, "type": "item", "id": "kick",     "amount": 3, "desc": "Kick Ticket x3"},
+
+
+    "21": {"exp_need": 37500, "type": "item", "id": "xp_boost", "amount": 3, "desc": "Супер Энергетик"},
+    "22": {"exp_need": 39000, "type": "item", "id": "hook",     "amount": 2, "desc": "Крюк x2"},
+    "23": {"exp_need": 40500, "type": "item", "id": "shield",   "amount": 2, "desc": "Щит (12 часов)"},
+    "24": {"exp_need": 42000, "type": "item", "id": "unban",    "amount": 1, "desc": "Индульгенция (Unban)"},
+    "25": {"exp_need": 43500, "type": "item", "id": "ban",      "amount": 1, "desc": "БАН-ХАММЕР (7 дней)"},
+    "26": {"exp_need": 44000, "type": "role", "id": 1448027775465160714, "desc": "Роль: Warlord"}, 
+    "27": {"exp_need": 44500, "type": "item", "id": "rename",   "amount": 2, "desc": "Бирка x2"},
+    "28": {"exp_need": 45000, "type": "item", "id": "unban",    "amount": 1, "desc": "Индульгенция (Unban)"},
+    "29": {"exp_need": 45500, "type": "none", "id": "None",       "amount": 0, "desc": "Цвет ника: Алмаз"},
+    "30": {"exp_need": 46000, "type": "none", "id": "None",       "amount": 0, "desc": "ФИНАЛ СЕЗОНА"}
+}

@@ -1,69 +1,44 @@
-import motor.motor_asyncio # Импортируем асинхронную библиотеку
-import asyncio
+import motor.motor_asyncio
 import time
+from settings import MONGO_URL
 
-from settings import DB_PASS, DB_USERNAME
+class DatabaseManager:
+    def __init__(self):
+        self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
+        # Используем одну базу данных, но разные коллекции
+        self.db = self.client['Main_Database'] 
+        self.users = self.db['users']
+    async def find_user(self, user_id):
+        return await self.users.find_one({"_id": user_id})
 
-
-
-MONGO_URL = f"mongodb+srv://{DB_USERNAME}:{DB_PASS}@cluster0.1tonrmv.mongodb.net/?appName=Cluster0" 
-
-
-
-class Database:
-
-
-    async def find_user(self,user_id):
-        #print('bebra')
-        self.user = await self.users_collection.find_one({"_id": user_id})
-        return self.user
-        #print(user)
-    
-    async def insert_new_user(self, user_id, username):
+    async def create_user(self, user_id, username):
         new_user = {
-            "_id" : user_id,
-            "username" : username,
-            "reg_date" : time.time(),
-            "referals" : 0,
-            "inventory" : [],
-            "rank" : 'Новичок'
+            "_id": user_id,
+            "username": username,
+            "reg_date": time.time(),
+            "xp": 0,
+            "level": 0,
+            "rank": "Новичок",
+            "inventory": {},
+            "rewards_claimed": [0]
         }
         try:
-            await self.users_collection.insert_one(new_user)
+            await self.users.insert_one(new_user)
+            return new_user
         except:
-            pass
+            return None # Пользователь уже существует
 
-    async def insert_user_battlepass(self,user_id, username):
-        new_user = {
-                "_id": user_id,
-                "username": username,
-                "xp": 0,
-                "level": 0,
-                "rewards_claimed": [],
-            }
-        try:
-            await self.users_collection.insert_one(new_user)
-        except:
-            pass
-            
+    async def update_user(self, user_id, data: dict):
+        """Обновляет любые поля пользователя"""
+        await self.users.update_one({"_id": user_id}, {"$set": data})
 
-    async def update_user(self,user_id,params: dict):
-        
-        await asyncio.gather(*[self.users_collection.update_one(
-                    {"_id": user_id},
-                    {"$set": {(param): params[param]}}
-                ) for param in params.keys()])
+    async def add_item(self, user_id: int, item_id: str, amount: int):
+        """Добавляет предмет (или отнимает, если amount < 0)"""
+        await self.users.update_one(
+            {"_id": user_id},
+            {"$inc": {f"inventory.{item_id}": amount}},
+            upsert=True
+        )
 
-
-    def __init__(self, db_name, table):
-        cluster = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
-        db = cluster[db_name]
-        self.users_collection = db[table]
-
-
-
-    
-
-
-    
-
+# Создаем экземпляр, который будем импортировать в других файлах
+db = DatabaseManager()
