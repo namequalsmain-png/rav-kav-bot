@@ -5,7 +5,6 @@ import asyncio
 from discord.ext import commands
 from settings import BOT_TOKEN
 from aiohttp import web
-import threading
 from utils.logger import log
 import datetime
 
