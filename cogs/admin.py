@@ -92,8 +92,19 @@ class ManualXPModal(ui.Modal, title="Ручная корректировка XP"
 
             current_xp = user_data.get('xp', 0)
             new_xp = max(0, current_xp + amount)
-            
+            exp_need = LEVELS[user_data['level'] + 1]['exp_need'] if (user_data['level'] + 1) in LEVELS else None
+            if new_xp >= exp_need and exp_need is not None:
+                for lvl in range(user_data['level'], len(LEVELS)):
+                    lvl_data = LEVELS[lvl]
+                    if lvl_data['exp_need'] <= new_xp and lvl != 30:
+                        pass
+                    else:
+                        await db.update_user(self.target_user.id, {"level": lvl})
+         
+            # exp_need = LEVELS[next_lvl]['exp_need'] if (next_lvl) in LEVELS else None
             await db.update_user(self.target_user.id, {"xp": new_xp})
+            # if new_xp >= exp_need and exp_need is not None:
+            #     await db.update_user(self.target_user.id, {"level": next_lvl})
             
             log(f"Админ {interaction.user} изменил XP {self.target_user}: {current_xp} -> {new_xp}", level="DEBUG")
             await interaction.response.send_message(f"✅ XP изменен: **{current_xp}** ➡️ **{new_xp}**", ephemeral=True)
