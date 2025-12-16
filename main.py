@@ -1,3 +1,4 @@
+import time
 import discord
 import os
 import asyncio
@@ -6,6 +7,7 @@ from settings import BOT_TOKEN
 from aiohttp import web
 import threading
 from utils.logger import log
+import datetime
 
 # Настройка намерений
 intents = discord.Intents.default()
@@ -28,7 +30,7 @@ class MyBot(commands.Bot):
         # await self.tree.sync() 
 
     async def on_ready(self):
-        print(f'Logged in as {self.user} (ID: {self.user.id})')
+        print(f'{datetime.datetime.now().strftime("%H:%M:%S")}Logged in as {self.user} (ID: {self.user.id})')
 
 
 async def health_check(request):
