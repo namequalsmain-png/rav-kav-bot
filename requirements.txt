@@ -5,3 +5,4 @@ groq
 Pillow
 requests
 dnspython
+aiohttp
