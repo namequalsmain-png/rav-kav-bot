@@ -6,6 +6,7 @@ from database import db
 from settings import ITEMS_DB, LEVELS, LOG_CHANNEL_ID
 from utils.generator import Generator, generate_image_in_thread
 from utils.logger import log
+import traceback
 
 # ==========================================
 # 🧠 ЛОГИКА ИНВЕНТАРЯ (Inventory Logic)
@@ -285,7 +286,7 @@ class ProfileView(ui.View):
         await interaction.response.send_message("🎒 **Ваш Инвентарь:**", view=view, ephemeral=True)
 
     # 2. Кнопка Карта Наград (Тоже полезно видеть в профиле)
-    @ui.button(label="Карта наград", style=discord.ButtonStyle.secondary, emoji="🗺️", row=0)
+    @ui.button(label="Карта наград", style=discord.ButtonStyle.secondary, emoji="🗺️", row=1)
     async def roadmap_btn(self, interaction: discord.Interaction, button: ui.Button):
         if interaction.user.id != self.user_id:
             return await interaction.response.send_message("Это не твой профиль!", ephemeral=True)
@@ -315,19 +316,24 @@ class ProfileView(ui.View):
         
         await interaction.response.send_modal(SupportModal())
 
-    @ui.button(label="Настройки", style=discord.ButtonStyle.secondary, emoji="⚙️", row=1)
+    @ui.button(label="Настройки/Settings", style=discord.ButtonStyle.success, emoji="⚙️", row=1)
     async def settings_btn(self, interaction: discord.Interaction, button: ui.Button):
         if interaction.user.id != self.user_id:
             return await interaction.response.send_message("Настройки доступны только владельцу.", ephemeral=True)
 
         # 1. Получаем текущие настройки из БД
         settings_data = await db.get_settings(self.user_id)
-        
+        try:
         # 2. Создаем Embed настроек
-        embed = discord.Embed(title="⚙️ Мои настройки", description="Нажмите на кнопку, чтобы переключить.", color=discord.Color.light_gray())
-        
+            embed = discord.Embed(title="⚙️ Мои настройки", color=discord.Color.light_gray())
+            embed.add_field(name="Язык/lang", value=f"`{settings_data['language']}`", inline=False)
+            embed.add_field(name="Профиль и личные данные", value=f"{'Скрыты' if settings_data['ephermal'] else 'Видны всем'}", inline=False)
         # 3. Заменяем сообщение профиля на настройки
-        view = SettingsView(self.user_id, settings_data)
+    
+            view = SettingsView(self.user_id, settings_data)
+        except Exception as e:
+            log(f"Ошибка при создании SettingsView: {e}", level='ERROR')
+            print(traceback.format_exc())
         await interaction.response.edit_message(embed=embed, view=view)
 
 class SettingsView(ui.View):
@@ -344,14 +350,14 @@ class SettingsView(ui.View):
         # По умолчанию True
         is_notify_on = self.settings.get("notify_lvl_up", True)
         
-        btn_notify = self.get_item("btn_notify") # Ищем кнопку по custom_id (или имени метода)
+        btn_notify = self.get_item_by_id("btn_notify") # Ищем кнопку по custom_id (или имени метода)
         
 
     # Вспомогательный метод для поиска кнопки в списке детей View
-    def get_item(self, custom_id_key):
+    def get_item_by_id(self, custom_id):
         for item in self.children:
-            # Мы используем callback name как идентификатор
-            if item.callback.__name__ == custom_id_key:
+            # Сравниваем custom_id, который мы явно задали
+            if hasattr(item, 'custom_id') and item.custom_id == custom_id:
                 return item
         return None
 
@@ -377,7 +383,21 @@ class SettingsView(ui.View):
         
         self.update_buttons_visuals()
         await interaction.response.edit_message(view=self)
-
+    @ui.button(label="Описание настроек", style=discord.ButtonStyle.secondary, row=0)
+    async def settings_desc(self, interaction: discord.Interaction, button: ui.Button):
+        try:
+            if interaction.user.id != self.user_id: return
+            await interaction.response.defer(thinking=True, ephemeral=True)
+            embed = discord.Embed(title="⚙️ Описание настроек", color=discord.Color.blue())
+            embed.add_field(name="Язык/lang", value="Выбор языка бота. Пока доступен только русский.", inline=False)
+            embed.add_field(name="Профиль и личные данные", value="Настройка видимости ваших данных при использовании команд бота. Если сообщение помечено как **Только вы видите это сообщение**, оно не будет видно другим участникам сервера.", inline=False)
+            
+            await interaction.edit_original_response(embed=embed)
+        except Exception as e:
+            log(f"Ошибка при показе описания настроек: {e}", level='ERROR')
+            print(traceback.format_exc())
+        
+        
     @ui.button(label="Назад в профиль", style=discord.ButtonStyle.primary, emoji="◀️", row=1)
     async def btn_back(self, interaction: discord.Interaction, button: ui.Button):
         if interaction.user.id != self.user_id: return
@@ -391,13 +411,61 @@ class SettingsView(ui.View):
         # но edit_message не позволяет менять ephemeral статус.
         # Поэтому просто нарисуем Embed профиля прямо здесь.
         
-        await interaction.response.defer()
-        
-        # ... (Копируем генерацию Embed профиля, чтобы вернуться красиво) ...
-        # Для краткости я просто обновлю текст, но лучше вынести генерацию Embed в отдельную функцию
-        
-        embed = discord.Embed(title="⚙️ Настройки сохранены", description="Используйте `/profile` чтобы вернуться.", color=discord.Color.green())
-        await interaction.edit_original_response(embed=embed, view=None)
+        try:
+            await interaction.response.defer(thinking=True, ephemeral=True)
+            log("[Profile] Defer отправлен.", level="DEBUG")
+            db_user = await db.find_user(interaction.user.id)
+            if not db_user:
+                log(f"[Profile] Пользователь {interaction.user.name} не найден в БД.", level="WARN")
+                # Создаем временную структуру, чтобы команда не упала
+                db_user = {} 
+            else:
+                log("[Profile] Данные из БД получены успешно.", level="DEBUG")
+
+            lvl = db_user.get('level', 0)
+            xp = db_user.get('xp', 0)
+            
+            # Дата регистрации (из БД)
+            reg_ts = db_user.get('reg_date', 0)
+            # Форматируем дату для Дискорда: <t:TIMESTAMP:D> (например: "15 мая 2024")
+            reg_date_str = f"<t:{int(reg_ts)}:D>" if reg_ts else "Неизвестно"
+
+            # Инвентарь (топ 5 предметов)
+            inv = db_user.get('inventory', {})
+            items_list = []
+            for i_id, count in inv.items():
+                if count > 0:
+                    data = ITEMS_DB.get(i_id, {})
+                    emoji = data.get('emoji', '📦')
+                    items_list.append(f"{emoji} x{count}")
+            
+            inv_str = " | ".join(items_list[:5])
+            if len(items_list) > 5: inv_str += f" и еще {len(items_list)-5}..."
+            if not inv_str: inv_str = "Пусто"
+            
+            # Следующий уровень
+            next_lvl_xp = LEVELS.get(lvl + 1, {}).get('exp_need', xp)
+            progress_percent = int((xp / next_lvl_xp) * 100) if next_lvl_xp > 0 else 100
+            
+            # Генерация Embed
+            embed = discord.Embed(title=f"Профиль {interaction.user.display_name}", color=interaction.user.color)
+            embed.set_thumbnail(url=interaction.user.display_avatar.url)
+            
+            embed.add_field(name="⭐ Уровень", value=f"**{lvl}**", inline=True)
+            embed.add_field(name="📊 Опыт", value=f"`{xp} / {next_lvl_xp}` ({progress_percent}%)", inline=True)
+            embed.add_field(name="📅 Участник сервера с", value=reg_date_str, inline=True)
+            
+            embed.add_field(name="🎒 Инвентарь (Топ)", value=inv_str, inline=False)
+            
+            # Кнопка для просмотра полного инвентаря
+            view = ProfileView(interaction.user.id) 
+                # (BattlepassView содержит кнопку "Рюкзак")
+
+            await interaction.edit_original_response(embed=embed, view=view)
+        except Exception as e:
+            log(f"КРИТИЧЕСКАЯ ОШИБКА В КОМАНДЕ PROFILE:\n{e}", level='ERROR')
+            print(traceback.format_exc())
+   
 # ==========================================
 # 🗺️ ROADMAP (Карта наград)
 # ==========================================

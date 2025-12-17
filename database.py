@@ -45,7 +45,7 @@ class DatabaseManager:
         user = await self.find_user(user_id)
         
         # Получаем текущие настройки (по умолчанию пустой словарь)
-        settings = user.get("settings", {})
+        settings = user.get("settings", {'lang': 'ru', 'ephermal': True})
         
         # Инвертируем значение (если настройки нет, считаем что она была True, ставим False, или наоборот)
         # Давай договоримся: по умолчанию все True (включено).
