@@ -3,7 +3,7 @@ import random
 import asyncio
 from discord import ui, app_commands
 from database import db
-from settings import ITEMS_DB, LEVELS
+from settings import ITEMS_DB, LEVELS, LOG_CHANNEL_ID
 from utils.generator import Generator, generate_image_in_thread
 from utils.logger import log
 
@@ -229,6 +229,91 @@ class InventoryPaginationView(ui.View):
         await interaction.response.edit_message(view=self)
 
 
+
+
+class SupportModal(ui.Modal, title="Связаться с администрацией"):
+    topic = ui.TextInput(
+        label="Тема обращения",
+        placeholder="Например: Жалоба, Вопрос, Баг",
+        max_length=50
+    )
+    description = ui.TextInput(
+        label="Подробное описание",
+        style=discord.TextStyle.paragraph,
+        placeholder="Опишите вашу проблему...",
+        required=True
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # Отправляем сообщение в админский канал
+        log_channel = interaction.guild.get_channel(LOG_CHANNEL_ID)
+        
+        embed = discord.Embed(title="📨 Новое обращение", color=discord.Color.orange())
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="Тема", value=self.topic.value, inline=False)
+        embed.add_field(name="Описание", value=self.description.value, inline=False)
+        embed.add_field(name="ID Пользователя", value=interaction.user.id, inline=False)
+        
+        if log_channel:
+            await log_channel.send(embed=embed)
+            await interaction.response.send_message("✅ Ваше сообщение отправлено администрации!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Ошибка настройки: канал логов не найден.", ephemeral=True)
+
+
+# --- НОВОЕ: МЕНЮ ПРОФИЛЯ (ОТДЕЛЬНО ОТ БАТТЛПАССА) ---
+class ProfileView(ui.View):
+    def __init__(self, user_id):
+        super().__init__(timeout=180)
+        self.user_id = user_id
+
+    # 1. Кнопка инвентаря (Копия логики, так как инвентарь относится и к профилю)
+    @ui.button(label="Инвентарь", style=discord.ButtonStyle.primary, emoji="🎒", row=0)
+    async def inventory_btn(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Это не твой профиль!", ephemeral=True)
+
+        user = await db.find_user(self.user_id)
+        inventory = user.get("inventory", {})
+        actual_items = {k: v for k, v in inventory.items() if v > 0}
+
+        if not actual_items:
+            return await interaction.response.send_message("🎒 Ваш рюкзак пуст.", ephemeral=True)
+
+        view = InventoryPaginationView(interaction, actual_items)
+        await interaction.response.send_message("🎒 **Ваш Инвентарь:**", view=view, ephemeral=True)
+
+    # 2. Кнопка Карта Наград (Тоже полезно видеть в профиле)
+    @ui.button(label="Карта наград", style=discord.ButtonStyle.secondary, emoji="🗺️", row=0)
+    async def roadmap_btn(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Это не твой профиль!", ephemeral=True)
+
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        user = await db.find_user(self.user_id)
+        lvl = user.get('level', 0)
+        if lvl == 0: lvl = 1
+        page = 2 if lvl > 10 else 1
+        if lvl > 20: page = 3
+        need_xp = LEVELS.get(lvl + 1, {}).get('exp_need', 99999)
+
+        buffer = await generate_image_in_thread(
+            Generator.create_roadmap, interaction.user.name, interaction.user.display_avatar.url,
+            user.get('xp', 0), need_xp, lvl, page, LEVELS
+        )
+        if buffer:
+            file = discord.File(fp=buffer, filename="roadmap.png")
+            view = RoadmapPagination(interaction.user, page, user)
+            await interaction.followup.send(file=file, view=view, ephemeral=True)
+
+    # 3. Кнопка Поддержка (Уникальная для профиля)
+    @ui.button(label="Поддержка", style=discord.ButtonStyle.success, emoji="🆘", row=1)
+    async def support_btn(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Вы не можете писать в поддержку за другого человека.", ephemeral=True)
+        
+        await interaction.response.send_modal(SupportModal())
+
 # ==========================================
 # 🗺️ ROADMAP (Карта наград)
 # ==========================================
@@ -278,7 +363,7 @@ class BattlepassView(ui.View):
         self.user_id = user_id
 
     # 🔥 ТЕПЕРЬ ЭТА КНОПКА ОТКРЫВАЕТ КРАСИВЫЙ ИНВЕНТАРЬ
-    @ui.button(label="Рюкзак", style=discord.ButtonStyle.primary, emoji="🎒")
+    @ui.button(label="Инвентарь", style=discord.ButtonStyle.primary, emoji="🎒")
     async def inventory_btn(self, interaction: discord.Interaction, button: ui.Button):
         if interaction.user.id != self.user_id:
             return await interaction.response.send_message("Это не твой профиль!", ephemeral=True)

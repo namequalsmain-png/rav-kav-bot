@@ -282,7 +282,7 @@ class Leveling(commands.Cog):
         
         db_user = await db.find_user(user.id)
         if not db_user:
-             return await interaction.followup.send(f"❌ У пользователя {user.name} нет профиля.")
+             return await interaction.followup.send(f"❌ У вас нет профиля.")
 
         lvl = db_user.get('level', 0)
         xp = db_user.get('xp', 0)
@@ -315,13 +315,13 @@ class Leveling(commands.Cog):
         
         embed.add_field(name="⭐ Уровень", value=f"**{lvl}**", inline=True)
         embed.add_field(name="📊 Опыт", value=f"`{xp} / {next_lvl_xp}` ({progress_percent}%)", inline=True)
-        embed.add_field(name="📅 Дата начала", value=reg_date_str, inline=True)
+        embed.add_field(name="📅 Участник сервера с", value=reg_date_str, inline=True)
         
         embed.add_field(name="🎒 Инвентарь (Топ)", value=inv_str, inline=False)
         
         # Кнопка для просмотра полного инвентаря
-        from utils.ui import BattlepassView # Импортируем только View для кнопки
-        view = BattlepassView(user.id) 
+        from utils.ui import ProfileView # Импортируем только View для кнопки
+        view = ProfileView(user.id) 
             # (BattlepassView содержит кнопку "Рюкзак")
 
         await interaction.followup.send(embed=embed, view=view)

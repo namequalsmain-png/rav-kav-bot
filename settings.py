@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 GUILD_ID = 1173882167504408626
 CHANNEL_ID = 1173888168546803744
-
+LOG_CHANNEL_ID = 1450878843803009024
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SYSTEM_PROMPT_PATH = os.path.join(BASE_DIR, 'data', 'ai_system_prompt.txt')
@@ -26,6 +26,7 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 MONGO_URL = os.getenv('MONGO_URL')
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+
 if BOT_TOKEN is None:
     raise ValueError("❌ ОШИБКА: BOT_TOKEN не найден в .env файле или файл не загрузился.")
 
