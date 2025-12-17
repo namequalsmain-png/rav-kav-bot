@@ -5,7 +5,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from database import db
 import asyncio
-from settings import LEVELS, CHANNEL_ID
+from settings import LEVELS, CHANNEL_ID, ITEMS_DB
 from utils.generator import Generator, generate_image_in_thread
 from utils.ui import RoadmapPagination, BattlepassView
 from utils.logger import log
@@ -274,6 +274,65 @@ class Leveling(commands.Cog):
             log(f"КРИТИЧЕСКАЯ ОШИБКА В КОМАНДЕ BATTLEPASS:\n{e}", level='ERROR')
             print(traceback.format_exc())
             await interaction.followup.send(f"Произошла ошибка: {e}")
+    @app_commands.command(name="profile", description="Статистика пользователя")
+    @app_commands.describe(user="Чей профиль посмотреть (пусто = свой)")
+    async def profile_cmd(self, interaction: discord.Interaction, user: discord.Member = None):
+        if not user:
+            user = interaction.user
+            
+        await interaction.response.defer(thinking=True)
+        
+        db_user = await db.find_user(user.id)
+        if not db_user:
+             return await interaction.followup.send(f"❌ У пользователя {user.name} нет профиля.")
+
+        lvl = db_user.get('level', 0)
+        xp = db_user.get('xp', 0)
+        
+        # Дата регистрации (из БД)
+        reg_ts = db_user.get('reg_date', 0)
+        # Форматируем дату для Дискорда: <t:TIMESTAMP:D> (например: "15 мая 2024")
+        reg_date_str = f"<t:{int(reg_ts)}:D>" if reg_ts else "Неизвестно"
+
+        # Инвентарь (топ 5 предметов)
+        inv = db_user.get('inventory', {})
+        items_list = []
+        for i_id, count in inv.items():
+            if count > 0:
+                data = ITEMS_DB.get(i_id, {})
+                emoji = data.get('emoji', '📦')
+                items_list.append(f"{emoji} x{count}")
+        
+        inv_str = " | ".join(items_list[:5])
+        if len(items_list) > 5: inv_str += f" и еще {len(items_list)-5}..."
+        if not inv_str: inv_str = "Пусто"
+
+        # Следующий уровень
+        next_lvl_xp = LEVELS.get(lvl + 1, {}).get('exp_need', xp)
+        progress_percent = int((xp / next_lvl_xp) * 100) if next_lvl_xp > 0 else 100
+        
+        # Генерация Embed
+        embed = discord.Embed(title=f"Профиль {user.display_name}", color=user.color)
+        embed.set_thumbnail(url=user.display_avatar.url)
+        
+        embed.add_field(name="⭐ Уровень", value=f"**{lvl}**", inline=True)
+        embed.add_field(name="📊 Опыт", value=f"`{xp} / {next_lvl_xp}` ({progress_percent}%)", inline=True)
+        embed.add_field(name="📅 Дата начала", value=reg_date_str, inline=True)
+        
+        embed.add_field(name="🎒 Инвентарь (Топ)", value=inv_str, inline=False)
+        
+        # Кнопка для просмотра полного инвентаря
+        # Мы можем добавить View, который открывает инвентарь ЭТОГО пользователя
+        # Но учти: кнопки инвентаря работают только для владельца.
+        # Поэтому добавим кнопку только если смотрят свой профиль.
+        view = None
+        if user.id == interaction.user.id:
+            from utils.ui import BattlepassView # Импортируем только View для кнопки
+            view = BattlepassView(user.id) 
+            # (BattlepassView содержит кнопку "Рюкзак")
+
+        await interaction.followup.send(embed=embed, view=view)
+
 async def setup(bot):
     # Костыль для получения ID гильдии внутри таска, лучше передать в init
     bot.guild_id = 1173882167504408626 
