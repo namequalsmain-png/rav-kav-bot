@@ -182,7 +182,7 @@ class InventoryPaginationView(ui.View):
         self.items = list(inventory_dict.items())
         self.page = 0
         self.items_per_page = 8
-        self.width = 2
+        self.width = 1
         self.update_buttons()
 
     def update_buttons(self):
@@ -253,6 +253,7 @@ class SupportModal(ui.Modal, title="Связаться с администрац
         embed.add_field(name="Тема", value=self.topic.value, inline=False)
         embed.add_field(name="Описание", value=self.description.value, inline=False)
         embed.add_field(name="ID Пользователя", value=interaction.user.id, inline=False)
+        embed.add_field(name="Username", value=interaction.user.name, inline=False)
         
         if log_channel:
             await log_channel.send(embed=embed)
@@ -307,7 +308,7 @@ class ProfileView(ui.View):
             await interaction.followup.send(file=file, view=view, ephemeral=True)
 
     # 3. Кнопка Поддержка (Уникальная для профиля)
-    @ui.button(label="Поддержка", style=discord.ButtonStyle.premium, emoji="⚙️", row=0)
+    @ui.button(label="Поддержка", emoji="⚙️", row=0, style=discord.ButtonStyle.danger)
     async def support_btn(self, interaction: discord.Interaction, button: ui.Button):
         if interaction.user.id != self.user_id:
             return await interaction.response.send_message("Вы не можете писать в поддержку за другого человека.", ephemeral=True)

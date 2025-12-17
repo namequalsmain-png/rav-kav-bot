@@ -29,7 +29,7 @@ class MyBot(commands.Bot):
         # await self.tree.sync() 
 
     async def on_ready(self):
-        print(f'{datetime.datetime.now().strftime("%H:%M:%S")}Logged in as {self.user} (ID: {self.user.id})')
+        print(f'{datetime.datetime.now().strftime("%H:%M:%S")} Logged in as {self.user} (ID: {self.user.id})')
 
 
     async def close(self):
