@@ -6,7 +6,7 @@ from discord.ext import commands
 from database import db
 from settings import ITEMS_DB
 
-# --- 1. МЕНЮ ВЫБОРА ПОЛЬЗОВАТЕЛЯ (User Select) ---
+# --- 1. МЕНЮ ВЫБОРА ПОЛЬЗОВАТЕЛЯ ---
 class TargetSelect(ui.UserSelect):
     def __init__(self, item_id, item_name):
         super().__init__(
@@ -17,10 +17,7 @@ class TargetSelect(ui.UserSelect):
         self.item_id = item_id
 
     async def callback(self, interaction: discord.Interaction):
-        # Получаем выбранного пользователя (это объект Member)
         target = self.values[0]
-        
-        # Передаем управление логике
         await InventoryLogic.process_use(interaction, self.item_id, target)
 
 class TargetSelectView(ui.View):
@@ -28,7 +25,7 @@ class TargetSelectView(ui.View):
         super().__init__(timeout=60)
         self.add_item(TargetSelect(item_id, item_name))
 
-# --- 2. МЕНЮ ПОДТВЕРЖДЕНИЯ (Для предметов БЕЗ цели) ---
+# --- 2. МЕНЮ ПОДТВЕРЖДЕНИЯ ---
 class ConfirmView(ui.View):
     def __init__(self, item_id, item_name):
         super().__init__(timeout=60)
@@ -44,21 +41,26 @@ class ConfirmView(ui.View):
         await interaction.response.edit_message(content="❌ Отменено.", view=None)
 
 
-# --- 3. КНОПКА ПРЕДМЕТА (В ГЛАВНОМ МЕНЮ) ---
+# --- 3. КНОПКА ПРЕДМЕТА (С РЯДАМИ) ---
 class InventoryItemButton(ui.Button):
-    def __init__(self, item_id, amount, item_data):
+    # Добавили аргумент row
+    def __init__(self, item_id, amount, item_data, row_index):
         self.item_id = item_id
-        label = f"{item_data.get('name', item_id)} (x{amount})"
+        
+        # Делаем название чуть короче, чтобы влезало
+        raw_name = item_data.get('name', item_id)
+        # Если название очень длинное, можно обрезать, но обычно 2 кнопки влезают
+        label = f"{raw_name} (x{amount})"
         emoji = item_data.get('emoji', '📦')
-        super().__init__(label=label, emoji=emoji, style=discord.ButtonStyle.secondary)
+        
+        # Передаем row в родительский класс
+        super().__init__(label=label, emoji=emoji, style=discord.ButtonStyle.secondary, row=row_index)
 
     async def callback(self, interaction: discord.Interaction):
-        # Определяем, нужен ли таргет
         needs_target = self.item_id in ['kick', 'mute', 'rename', 'steal_xp', 'hook']
         item_name = ITEMS_DB.get(self.item_id, {}).get('name', self.item_id)
 
         if needs_target:
-            # Если нужен таргет — отправляем меню выбора людей
             view = TargetSelectView(self.item_id, item_name)
             await interaction.response.send_message(
                 f"🎯 Выберите, на ком использовать **{item_name}**:", 
@@ -66,7 +68,6 @@ class InventoryItemButton(ui.Button):
                 ephemeral=True
             )
         else:
-            # Если таргет не нужен — отправляем кнопку подтверждения
             view = ConfirmView(self.item_id, item_name)
             await interaction.response.send_message(
                 f"❓ Вы уверены, что хотите использовать **{item_name}**?", 
@@ -75,7 +76,7 @@ class InventoryItemButton(ui.Button):
             )
 
 
-# --- 4. ПАГИНАЦИЯ ИНВЕНТАРЯ ---
+# --- 4. ПАГИНАЦИЯ ИНВЕНТАРЯ (СЕТКА 2x4) ---
 class InventoryPaginationView(ui.View):
     def __init__(self, interaction, inventory_dict):
         super().__init__(timeout=180)
@@ -83,19 +84,32 @@ class InventoryPaginationView(ui.View):
         self.user_id = interaction.user.id
         self.items = list(inventory_dict.items())
         self.page = 0
-        self.items_per_page = 20 
+        
+        # ВАЖНО: Максимум 8 предметов на странице (4 ряда по 2 кнопки)
+        # 5-й ряд (row=4) зарезервирован под кнопки навигации
+        self.items_per_page = 8 
+        self.width = 2 # Количество кнопок в одной строке (1 или 2)
+        
         self.update_buttons()
 
     def update_buttons(self):
         self.clear_items()
+        
         start = self.page * self.items_per_page
         end = start + self.items_per_page
         current_items = self.items[start:end]
 
-        for item_id, amount in current_items:
+        # Расставляем кнопки по рядам
+        for i, (item_id, amount) in enumerate(current_items):
             item_data = ITEMS_DB.get(item_id, {})
-            self.add_item(InventoryItemButton(item_id, amount, item_data))
+            
+            # Магия расстановки:
+            # i // self.width дает нам номер ряда (0, 0, 1, 1, 2, 2...)
+            row_index = i // self.width 
+            
+            self.add_item(InventoryItemButton(item_id, amount, item_data, row_index))
 
+        # Навигация всегда на 4-м (последнем) ряду
         if len(self.items) > self.items_per_page:
             total_pages = (len(self.items) - 1) // self.items_per_page + 1
             
@@ -123,13 +137,10 @@ class InventoryPaginationView(ui.View):
         await interaction.response.edit_message(view=self)
 
 
-# --- 5. ЛОГИКА (БЕЗ ИЗМЕНЕНИЙ, НО ВАЖНАЯ) ---
+# --- 5. ЛОГИКА ---
 class InventoryLogic:
     @staticmethod
     async def process_use(interaction: discord.Interaction, item_id: str, target: discord.Member = None):
-        """Вся магия использования предмета"""
-        
-        # Чтобы не зависло, пока думает
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         user_data = await db.find_user(interaction.user.id)
@@ -138,7 +149,6 @@ class InventoryLogic:
         if current_amount <= 0:
             return await interaction.followup.send(f"❌ Предмет закончился!")
 
-        # Проверка цели (UserSelect может вернуть бота, проверяем)
         if target and target.bot:
             return await interaction.followup.send("🤖 На роботов нельзя.")
         
@@ -147,7 +157,6 @@ class InventoryLogic:
             if target_data and target_data.get('inventory', {}).get('shield', 0) > 0:
                 await db.add_item(target.id, 'shield', -1)
                 await db.add_item(interaction.user.id, item_id, -1)
-                # Отправляем в общий чат уведомление о щите (не ephemeral)
                 return await interaction.channel.send(f"🛡️ **{target.display_name}** отразил атаку **{interaction.user.display_name}** щитом!")
 
         msg = ""
@@ -162,7 +171,7 @@ class InventoryLogic:
                     return await interaction.followup.send("❌ Цель не в войсе!")
                 if interaction.user.voice.channel == target.voice.channel:
                     return await interaction.followup.send("❌ Вы уже в одной комнате.")
-                    
+                
                 await target.move_to(interaction.user.voice.channel)
                 msg = f"🪝 **{interaction.user.name}** притянул **{target.display_name}**!"
                 success = True
@@ -231,7 +240,6 @@ class InventoryLogic:
 
         if success:
             await db.add_item(interaction.user.id, item_id, -1)
-            # Отправляем сообщение
             await interaction.followup.send(msg)
 
     @staticmethod
