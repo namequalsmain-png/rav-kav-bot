@@ -315,7 +315,20 @@ class ProfileView(ui.View):
         
         await interaction.response.send_modal(SupportModal())
 
+    @ui.button(label="Настройки", style=discord.ButtonStyle.secondary, emoji="⚙️", row=1)
+    async def settings_btn(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Настройки доступны только владельцу.", ephemeral=True)
 
+        # 1. Получаем текущие настройки из БД
+        settings_data = await db.get_settings(self.user_id)
+        
+        # 2. Создаем Embed настроек
+        embed = discord.Embed(title="⚙️ Мои настройки", description="Нажмите на кнопку, чтобы переключить.", color=discord.Color.light_gray())
+        
+        # 3. Заменяем сообщение профиля на настройки
+        view = SettingsView(self.user_id, settings_data)
+        await interaction.response.edit_message(embed=embed, view=view)
 
 class SettingsView(ui.View):
     def __init__(self, user_id, current_settings):
